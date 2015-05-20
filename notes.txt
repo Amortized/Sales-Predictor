@@ -1,0 +1,58 @@
+* Need to forecast only for selected store, event days.
+* If we don't need to predict for the store,item combination can we still use it in some way. Can the sale of this item or overall sales at this store help in any way.
+
+* Training data has data for both event and non-event days
+* Multiple stores share the same weather station. They are near to each other......
+* Similar item nos refer to the same thing in different stores
+
+*  "T" or "Trace" in snowfall and precipitation
+		I don't understand what "T" or "Trace" is in these two columns.
+
+		I will share what I learnt from my google search:
+
+		Basically, snow is measured in 0.1 inch (tenths), a trace is anything that fell but accumulated to less than 0.1 inches; rain is measured in 0.01 (hundredths), a trace is anything that fell but accumulated to less than 0.01 inches.
+
+
+* Event Definition
+
+			M = missing data
+
+		"SN FZFG BR BLSN" = snow, freezing fog, mist, blowing snow
+
+		Either way, it's water under the bridge. This is the logic we used (in R):
+
+		snow = (
+		    (str_detect(codesum,"SN") || str_detect(codesum,"SG")) &&
+		    !is.na(as.numeric(as.character(snowfall))) &&
+		    as.numeric(as.character(snowfall)) >= inches_snow),
+		rain = (
+		    (str_detect(codesum,"RA") && !str_detect(codesum,"SN")) &&
+		    !is.na(as.numeric(as.character(preciptotal))) &&
+		    as.numeric(as.character(preciptotal)) >= inches_rain)	
+
+
+* Y = x1 + x2 + x3	+ x4 + x5 + x6 + x7 + x8
+
+x1 : Purchasing power of the people in that location. I don't have the location, but we have item count for that store as proxy. 
+
+x2 : Overall popularity of the item across Walmart.
+
+x3 : How popularity is the item in all of the related stores.
+
+x4 : Break the item count based on week, month.
+
+x5 : How popular is the store. 
+
+x6 : How many related stores.		    	
+
+x7 : Recent weather
+
+x8 : Are we predicting for stores which don't have any data in training set. If no, what was the sale at this store last year for this item, for all the items.
+
+x9 : Item demand high hence stockout - Check the recent stats
+	 No demand - Check the recent stats
+	 Was the item not sold because of the event 
+	 Is the product 0 in all of the stores
+	 How many 0 in all/nearby stores - May indicate discontinuity and non availability.
+
+	   
