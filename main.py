@@ -2,6 +2,7 @@ import sys;
 import numpy as np;
 from datetime import datetime, date;
 import model
+import warnings;
 
 def get_season(dateObj):
 	#Order - Winter, Spring,Summer, Autumn, Winter
@@ -181,27 +182,17 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 		return data_X, test_ids;		
 
 
-
-
-
-
-
-		
-
-
-
-
-	
-
 if __name__ == '__main__':
-	store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map = read("./data/key.csv", "./data/train.csv", "./data/test.csv", "./data/weather.csv")	
+	warnings.filterwarnings("ignore");
+	store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map = read("./data/key.csv", "./data/train_subset.csv", "./data/test.csv", "./data/weather.csv")	
 	print("Files Read")
 	train_X, train_Y = generateFeatures(store_station_map, station_store_map, train_data, station_dt_weatherDetails_map, True);
 	print("Training Data Loaded")
-	test_X, test_ids = generateFeatures(store_station_map, station_store_map, test_data, station_dt_weatherDetails_map, False);
+	
+	#test_X, test_ids = generateFeatures(store_station_map, station_store_map, test_data, station_dt_weatherDetails_map, False);
 	print("Test Data Loaded")
 
 	del store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map;
 
-	model.do(train_X, train_Y, test_X, test_ids)
+	model.do(train_X, train_Y)
 
