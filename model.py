@@ -26,7 +26,7 @@ import math
 
 def generateParams():
     # Set the parameters by cross-validation
-    paramaters_grid    = {'eta': [0.01], 'min_child_weight' : [4,6,7,9,10],  'colsample_bytree' : [0.8,0.90,0.95,1.0], 'subsample' : [0.95], 'gamma' : [0], 'max_depth' : [6,7,9,10,12,14]};
+    paramaters_grid    = {'eta': [0.08], 'min_child_weight' : [4,6,7,9,10],  'colsample_bytree' : [0.8,0.90,0.95,1.0], 'subsample' : [0.95], 'gamma' : [0], 'max_depth' : [6,7,9,10,12,14]};
 
     paramaters_search  = list(ParameterGrid(paramaters_grid));
 
@@ -40,6 +40,8 @@ def generateParams():
     return parameters_to_try;     
 
 def evaluate(Y, Y_hat):
+    Y_hat = [0 if yh < 0 else yh for yh in Y_hat]
+    Y     = [0 if y < 0 else y for y in Y]
     diff = [ math.pow( (math.log(Y_hat[i]+1) - math.log(Y[i]+1)), 2)  for i in range(0, len(Y)) ];
     return math.sqrt( sum(diff) / float(len(diff)));
 
@@ -64,7 +66,7 @@ def build(features, label):
         param     = parameters_to_try[i]
         #Train a Model
         evallist  = [(dtrain,'train'), (dvalidation,'eval')]
-        num_round = 1000
+        num_round = 1
         bst       = xgb.train(param, dtrain, num_round, evallist, early_stopping_rounds=10)
 
         #Get a score
