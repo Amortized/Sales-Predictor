@@ -188,11 +188,14 @@ if __name__ == '__main__':
 	print("Files Read")
 	train_X, train_Y = generateFeatures(store_station_map, station_store_map, train_data, station_dt_weatherDetails_map, True);
 	print("Training Data Loaded")
-	
-	#test_X, test_ids = generateFeatures(store_station_map, station_store_map, test_data, station_dt_weatherDetails_map, False);
+	test_X, test_ids = generateFeatures(store_station_map, station_store_map, test_data, station_dt_weatherDetails_map, False);
 	print("Test Data Loaded")
 
 	del store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map;
 
-	model.do(train_X, train_Y)
+	model.do(np.array(train_X), np.array(train_Y), np.array(test_X), test_ids);
+
+
+
+
 
