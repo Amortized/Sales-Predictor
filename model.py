@@ -23,16 +23,17 @@ from sklearn.preprocessing import OneHotEncoder
 from random import randint
 from random import shuffle
 import math
+import copy
 
 def generateParams():
     # Set the parameters by cross-validation
-    paramaters_grid    = {'eta': [0.07], 'min_child_weight' : [6],  'colsample_bytree' : [0.95], 'subsample' : [0.95], 'gamma' : [0], 'max_depth' : [8]};
+    paramaters_grid    = {'eta': [0.01], 'min_child_weight' : [6],  'colsample_bytree' : [0.95], 'subsample' : [0.95], 'gamma' : [0], 'max_depth' : [6]};
 
     paramaters_search  = list(ParameterGrid(paramaters_grid));
 
     parameters_to_try  = [];
     for ps in paramaters_search:
-        params           = {'eval_metric' : 'rmse', 'objective' : 'reg:linear', 'nthread' : 8};
+        params           = {'eval_metric' : 'rmse', 'objective' : 'reg:linear', 'nthread' : 4};
         for param in ps.keys():
             params[str(param)] = ps[param];
         parameters_to_try.append(copy.copy(params));
@@ -66,8 +67,8 @@ def build(features, label):
         param     = parameters_to_try[i]
         #Train a Model
         evallist  = [(dtrain,'train'), (dvalidation,'eval')]
-        num_round = 1000
-        bst       = xgb.train(param, dtrain, num_round, evallist, early_stopping_rounds=10)
+        num_round = 3000
+        bst       = xgb.train(param, dtrain, num_round, evallist, early_stopping_rounds=20)
 
         #Get a score
         Y_hat = bst.predict( dvalidation ,ntree_limit=bst.best_iteration)
@@ -120,26 +121,27 @@ def do(train_X, train_Y, test_X, test_ids):
     imp     = Imputer(missing_values='NaN', strategy='median', axis=0);
     enc     = OneHotEncoder(n_values='auto', categorical_features=np.array(categorical_features), sparse=False);
 
-    
+    merged  = copy.copy(train_X) + copy.copy(test_X);
+    print("Merged List Created");
+
     #Impute the  data
-    imp.fit(train_X);
+    imp.fit(merged);
+    merged  = imp.transform(merged);
+    enc.fit(merged);
+    del merged;
+
 
     train_X = imp.transform(train_X);
-    test_X  = imp.transform(test_X);	
-
-    merged  = np.concatenate((train_X, test_X), axis=0);
-
-    enc.fit(merged);
-
     #Encode the data
     train_X = enc.transform(train_X);
     print("Imputation and encoding completed.");
 
-
     best_iteration = build(train_X, train_Y);
 
     del train_X, train_Y;
-    test_X = enc.transform(test_X);
+
+    test_X  = imp.transform(test_X);    
+    test_X  = enc.transform(test_X);
 
     predict_and_write('./data/best_model.model', test_X, test_ids, best_iteration)
 

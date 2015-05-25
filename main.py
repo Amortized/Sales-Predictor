@@ -84,13 +84,14 @@ def read(key_file, train_file, test_file, weather_file):
 
 
 
-def generateFeatures(store_station_map, station_store_map, data, station_dt_weatherDetails_map, train=True):
+def generateFeatures(store_station_map, station_store_map, data, station_dt_weatherDetails_map, train, no_of_data_points):
 	data_X 		 = [];
 	data_Y 		 = [];
 	test_ids 	 = [];
 
 	unique_code_sum = ['', 'HZ', 'FU', 'BLSN', 'TSSN', 'VCTS', 'DZ', 'BR', 'FG', 'BCFG', 'DU', 'FZRA', 'TS', 'RA', 'PL', 'GS', 'GR', 'FZDZ', 'VCFG', 'PRFG', 'FG+', 'TSRA', 'FZFG', 'BLDU', 'MIFG', 'SQ', 'UP', 'SN', 'SG']
 
+	counter      = 0;
 	#Train
 	for td in data:
 		X = [];
@@ -152,7 +153,8 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 		X.append(td[2]);
 
 		#Add weather type
-		X.append(getEventType(weather[10].strip().split(" "), weather[12], weather[11]));
+		event_type = getEventType(weather[10].strip().split(" "), weather[12], weather[11]);
+		X.append(event_type);
 
 		#Make date object
 		dt = datetime.strptime(td[0],'%Y-%m-%d')
@@ -169,12 +171,24 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 			X.append(0);
 
 		##########################################################################
-		data_X.append(X);
-			
-		if train:
-			data_Y.append(td[3]);
+		if train and event_type in [1,2]:
+			data_X.append(X);
+			if td[3] < 0:
+				data_Y.append(0.0);
+			else:	
+				data_Y.append(td[3]);
+		elif train and event_type == 0:
+			if counter < no_of_data_points:
+				data_X.append(X);
+				if td[3] < 0:
+					data_Y.append(0.0);
+				else:	
+					data_Y.append(td[3]);
+				counter += 1;
 		else:
+			data_X.append(X);
 			test_ids.append( ( str(td[1]) + "_" + str(td[2]) + "_" + str(td[0]) ) );
+		##########################################################################				
 
 	if train:
 		return data_X, data_Y;
@@ -184,16 +198,21 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 
 if __name__ == '__main__':
 	warnings.filterwarnings("ignore");
-	store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map = read("./data/key.csv", "./data/train_subset.csv", "./data/test.csv", "./data/weather.csv")	
+	no_of_data_points = 400000; 
+	store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map = read("./data/key.csv", "./data/train_subset.csv", "./data/test.csv", "./data/weather.csv");	
 	print("Files Read")
-	train_X, train_Y = generateFeatures(store_station_map, station_store_map, train_data, station_dt_weatherDetails_map, True);
+	train_X, train_Y = generateFeatures(store_station_map, station_store_map, train_data, station_dt_weatherDetails_map, True, no_of_data_points);
+	
 	print("Training Data Loaded")
-	test_X, test_ids = generateFeatures(store_station_map, station_store_map, test_data, station_dt_weatherDetails_map, False);
+	test_X, test_ids = generateFeatures(store_station_map, station_store_map, test_data, station_dt_weatherDetails_map, False, no_of_data_points);
 	print("Test Data Loaded")
+
+	print(len(train_X));
+	print(len(test_X));
 
 	del store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map;
 
-	model.do(np.array(train_X), np.array(train_Y), np.array(test_X), test_ids);
+	model.do(train_X, train_Y, test_X, test_ids);
 
 
 
