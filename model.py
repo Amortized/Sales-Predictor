@@ -26,7 +26,7 @@ import math
 
 def generateParams():
     # Set the parameters by cross-validation
-    paramaters_grid    = {'eta': [0.08], 'min_child_weight' : [4,6,7,9,10],  'colsample_bytree' : [0.8,0.90,0.95,1.0], 'subsample' : [0.95], 'gamma' : [0], 'max_depth' : [6,7,9,10,12,14]};
+    paramaters_grid    = {'eta': [0.07], 'min_child_weight' : [6],  'colsample_bytree' : [0.95], 'subsample' : [0.95], 'gamma' : [0], 'max_depth' : [8]};
 
     paramaters_search  = list(ParameterGrid(paramaters_grid));
 
@@ -66,7 +66,7 @@ def build(features, label):
         param     = parameters_to_try[i]
         #Train a Model
         evallist  = [(dtrain,'train'), (dvalidation,'eval')]
-        num_round = 1
+        num_round = 1000
         bst       = xgb.train(param, dtrain, num_round, evallist, early_stopping_rounds=10)
 
         #Get a score
@@ -82,9 +82,32 @@ def build(features, label):
 
     print("Validation Score " + str(best_score));
     print("Best Params "      + str(best_params));
+    print("Best Iteration "   + str(best_iteration));
     best_model.save_model('./data/best_model.model');
 
-def do(train_X, train_Y):
+    return best_iteration;
+
+def predict_and_write(model1_path, test_X, test_ids, model1_best_iteration):
+    #Load model
+    model1 = xgb.Booster({'nthread':8})
+    model1.load_model(model1_path)
+
+    test_X = xgb.DMatrix(test_X);
+    f = open("./data/submission.csv", "w");
+    f.write("id,units\n");
+
+    
+    Y_hat = model1.predict( test_X ,ntree_limit=model1_best_iteration);
+    Y_hat = [0 if yh < 0 else yh for yh in Y_hat]
+
+    for i in range(0, len(Y_hat)):
+       f.write(str(test_ids[i]) + "," + str(Y_hat[i]) + "\n");
+
+    f.close();
+
+    
+
+def do(train_X, train_Y, test_X, test_ids):
     categorical_features_1 = [i for i in range(19,50)];
     categorical_features_2 = [i for i in range(51,60)];
 
@@ -100,16 +123,25 @@ def do(train_X, train_Y):
     
     #Impute the  data
     imp.fit(train_X);
+
     train_X = imp.transform(train_X);
-    enc.fit(train_X);
+    test_X  = imp.transform(test_X);	
+
+    merged  = np.concatenate((train_X, test_X), axis=0);
+
+    enc.fit(merged);
+
     #Encode the data
     train_X = enc.transform(train_X);
     print("Imputation and encoding completed.");
 
-    train_X = np.array(train_X);
-    train_Y = np.array(train_Y);
 
-    build(train_X, train_Y);
+    best_iteration = build(train_X, train_Y);
+
+    del train_X, train_Y;
+    test_X = enc.transform(test_X);
+
+    predict_and_write('./data/best_model.model', test_X, test_ids, best_iteration)
 
 
 
