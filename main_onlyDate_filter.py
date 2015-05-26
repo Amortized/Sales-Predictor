@@ -25,8 +25,9 @@ from random import randint
 from random import shuffle
 import math
 import copy
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsRegressor, DistanceMetric, RadiusNeighborsRegressor
 from sklearn.metrics import mean_squared_error
+from sklearn import preprocessing
 
 def get_season(dateObj):
 	#Order - Winter, Spring,Summer, Autumn, Winter
@@ -135,16 +136,19 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 		    if (store, item) in store_product_counts and store_product_counts[(store, item)] > 0:
 				#Make date object
 				dt = datetime.strptime(td[0],'%Y-%m-%d')
+
 				#Extract date based features
-				X.append(dt.month);             	 #Month
-				X.append(dt.strftime("%W"));	 	 #WeekNo of the year
-				X.append(((dt.day - 1) // 7 + 1));	 #Week of the month
-				X.append(dt.weekday());				 #Week day 
-				X.append(get_season(dt)); 			 #Season 	
+				X.append(int(dt.month));             	 #Month
+				X.append(int(dt.strftime("%W")));	 	 #WeekNo of the year
+				X.append(int((dt.day - 1) // 7 + 1));	 #Week of the month
+				X.append(int(dt.weekday()));				 #Week day 
+				X.append(int(get_season(dt))); 			 #Season 	
 				if dt.weekday() in [5,6]:
 					X.append(1);			 		 #Week end
 				else:
 					X.append(0);
+
+				X.append(int(dt.strftime('%j'))); #Day of the year
 
 				if (store, item) in store_item_features:
 					store_item_features[(store, item)][0].append(X)
@@ -155,16 +159,20 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 		else:
 			#Make date object
 			dt = datetime.strptime(td[0],'%Y-%m-%d')
+
+			
 			#Extract date based features
-			X.append(dt.month);             	 #Month
-			X.append(dt.strftime("%W"));	 	 #WeekNo of the year
-			X.append(((dt.day - 1) // 7 + 1));	 #Week of the month
-			X.append(dt.weekday());				 #Week day 
-			X.append(get_season(dt)); 			 #Season 	
+			X.append(int(dt.month));             	 #Month
+			X.append(int(dt.strftime("%W")));	 	 #WeekNo of the year
+			X.append(int((dt.day - 1) // 7 + 1));	 #Week of the month
+			X.append(int(dt.weekday()));				 #Week day 
+			X.append(int(get_season(dt))); 			 #Season 	
 			if dt.weekday() in [5,6]:
 				X.append(1);			 		 #Week end
 			else:
 				X.append(0);
+
+			X.append(int(dt.strftime('%j'))); #Day of the year
 
 			store_item_features.append( (store, item, td[0], X)   )	
 				
@@ -174,7 +182,7 @@ def generateFeatures(store_station_map, station_store_map, data, station_dt_weat
 
 def generateParams():
     # Set the parameters by cross-validation
-    paramaters_grid    = {'n_neighbors': [7,8,9,10,12,14,15,20,25,50,100,150], 'algorithm' : ['auto'], 'weights' : ['distance', 'uniform']};
+    paramaters_grid    = {'n_neighbors': [7,8,9,10,12,14,15,20,25,50,100,110,120,125,130,140,150], 'algorithm' : ['brute'], 'weights' : ['uniform']};
 
     paramaters_search  = list(ParameterGrid(paramaters_grid));
 
@@ -198,16 +206,22 @@ if __name__ == '__main__':
 	print("Test Data Loaded")
 	del store_station_map, station_store_map, train_data, test_data, station_dt_weatherDetails_map;
 
+	#Compute the scaler
+	scaler = dict();
+	for store_item in train_store_item_features:
+		scaler[store_item] = preprocessing.MinMaxScaler().fit(train_store_item_features[store_item][0]);
+		train_store_item_features[store_item][0] = scaler[store_item].transform(train_store_item_features[store_item][0])
+
 	models = dict()
 
 	for store_item in train_store_item_features:
 		data = train_store_item_features[store_item];
-		X_train, X_validation, Y_train, Y_validation = train_test_split(data[0], data[1], test_size=0.10, random_state=100);
+		X_train, X_validation, Y_train, Y_validation = train_test_split(data[0], data[1], test_size=0.30, random_state=100);
 		parameters_to_try = generateParams();
 
 		best_score = sys.float_info.max;
 		best_model = None;
-
+		best_param = None;
 
 		for i in range(0, len(parameters_to_try)):
 			param     = parameters_to_try[i];
@@ -219,11 +233,13 @@ if __name__ == '__main__':
 			except:
 				current_score = sys.float_info.max;
 
+			#print("Param " + str(param) + " Score " + str(current_score))
 			if current_score < best_score:
 				best_score = current_score
-				best_model = neigh
+				best_model = copy.deepcopy(neigh);
+				best_param = copy.deepcopy(param);
 
-		print("Best validation score for " + str(store_item) + "  is " + str(best_score));	
+		print("Best validation score for " + str(store_item) + "  is " + str(best_score) + " Param " + str(best_param));	
 		models[store_item] = best_model;
 
 
@@ -241,7 +257,10 @@ if __name__ == '__main__':
 	   elif store_product_counts[store_item] == 0:
 	   	  f.write( str(dP[0]) + "_" + str(dP[1]) + "_" + str(dP[2]) + "," + str(0) + "\n");	
 	   else: 
-	      f.write( str(dP[0]) + "_" + str(dP[1]) + "_" + str(dP[2]) + "," + str(models[store_item].predict(dP[3])[0]) + "\n");		
+	   	  prediction = round(math.exp(models[store_item].predict(scaler[store_item].transform(dP[3]))[0] - 1));
+	   	  if prediction < 0:
+	   	  	prediction = 0
+		  f.write( str(dP[0]) + "_" + str(dP[1]) + "_" + str(dP[2]) + "," + str(prediction) + "\n");		
 
 
 	f.close();
